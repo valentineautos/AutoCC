@@ -17,8 +17,8 @@
 class AutoCCClient {
   public:
     AutoCCClient();
-    ~AutoCCClient();
-    void begin(structure_peer* server, structure_option_setup* getOptions, int numOfOptions);
+    bool begin(structure_peer* server, structure_option_setup* getOptions, int numOfOptions);
+    int getValue(char getId[13]);
     structure_option* options;
   private:
     Preferences preferences;

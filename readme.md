@@ -44,3 +44,11 @@ AVAILABLE SERVER METHODS
   .begin(structure_peer* clients, int numOfDevices)   - initialise and get menu items
   .setValue(unsigned long uniqueId, int newValue)     - menu  and new value of menu item to change
   .resetClients(structure_peer* clients)              - reset and restart with new client list
+
+
+
+AVAILABLE CLIENT METHODS
+
+  .begin(structure_peer server, structure_option_setup* options, int numOfOptions)
+                                                      - initialises the server and sets values
+  .getValue(char getId[13])                           - looks for the set value of a saved menu item give its id

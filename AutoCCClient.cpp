@@ -9,20 +9,26 @@
   of this software and associated documentation files.
 */
 #include "AutoCCClient.h"
+#include <nvs.h>
+#include <nvs_flash.h>
 
 AutoCCClient* AutoCCClient::instance = nullptr; 
 
 AutoCCClient::AutoCCClient() {
   instance = this;
   Serial.begin(115200);
-  preferences.begin("auto_cc", false);
+  
+  esp_err_t err = nvs_flash_init();
+  if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    nvs_flash_erase();
+    err = nvs_flash_init();
+  }
+  if (err != ESP_OK) {
+    Serial.println("Error initializing NVS");
+  }
 }
 
-AutoCCClient::~AutoCCClient() {
-    preferences.end(); // end preferences when unloading
-}
-
-void AutoCCClient::begin(structure_peer* server, structure_option_setup* getOptions, int numOfOptions) {
+bool AutoCCClient::begin(structure_peer* server, structure_option_setup* getOptions, int numOfOptions) {
   if (DEBUGGING) delay(1000); // stops initialisation being faster than Serial startup
   connectToWifi(DEVICE_CLIENT);
   if (initESPNOW()) {
@@ -39,18 +45,53 @@ void AutoCCClient::begin(structure_peer* server, structure_option_setup* getOpti
   // and initialise new options
   for (int i = 0; i < _numOfOptions; i++) {
     print("Loading ", getOptions[i].label);
+
     options[i].flag        = FLAG_OPTION;
     strcpy(options[i].mem_id, getOptions[i].mem_id);
-    options[i].mem_id[12] = '\0'; // null pointer as last char
+    options[i].mem_id[12] = '\0';
     strcpy(options[i].label, getOptions[i].label);
     options[i].type        = getOptions[i].type;
     options[i].range_min   = getOptions[i].range_min;
     options[i].range_max   = getOptions[i].range_max;
     options[i].unique_id   = 0;
-    options[i].value = preferences.getInt(options[i].mem_id, getOptions[i].value);
+
+    print("NVS slot is ", options[i].mem_id);
+    nvs_handle_t my_handle;
+    esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
+    if (err == ESP_OK) {
+      int32_t savedValue;
+      err = nvs_get_i32(my_handle, options[i].mem_id, &savedValue);
+      if (err == ESP_OK) {
+        print("Saved value is ", savedValue);
+        options[i].value = savedValue;
+      } else {
+        options[i].value = getOptions[i].value;
+      }
+      nvs_close(my_handle);
+    } else {
+      options[i].value = getOptions[i].value;
+    }
+
+    if (i == (_numOfOptions - 1)) {
+      return true;
+    }
   }
+
+  print("Error intialising options");
+  return false;
 }
 
+// looks for the id and returns the value. Returns -1 if no match
+int AutoCCClient::getValue(char getId[13]) {
+   for (int i = 0; i < _numOfOptions; i++) {
+      // look for id - accounts for null pointer
+      if (strcmp(getId, options[i].mem_id) == 0) {
+        return options[i].value;
+      }
+   }
+   print(getId, " not found in options list");
+   return -1;
+}
 
 /* RECEIVED DATA CALLBACK HANDLING */
 
@@ -129,17 +170,28 @@ bool AutoCCClient::tryUpdateValue(unsigned long uniqueId, int newValue) {
 bool AutoCCClient::updateValue(int optionIndex, int newValue) {
     options[optionIndex].value = newValue;
 
-    // Store the new value in Preferences
-    preferences.putInt(options[optionIndex].mem_id, newValue);
-
-    // fix for the fact the pref values don't update fast enough
-    preferences.end(); // Close preferences
-    preferences.begin("auto_cc", false); // Reopen preferences
+    // Store the new value in NVS
+     nvs_handle_t my_handle;
+    esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
+    if (err == ESP_OK) {
+      err = nvs_set_i32(my_handle, options[optionIndex].mem_id, newValue);
+      if (err == ESP_OK) {
+        err = nvs_commit(my_handle);
+      }
+      nvs_close(my_handle);
+    }
 
     // Check if stored value equals the new value
-    if ((preferences.getInt(options[optionIndex].mem_id) == newValue) && (options[optionIndex].value == newValue)) {
-        print("New value set to ", newValue);
-        return true;
+    int32_t savedValue;
+    err = nvs_open("storage", NVS_READWRITE, &my_handle);
+    if (err == ESP_OK) {
+      err = nvs_get_i32(my_handle, options[optionIndex].mem_id, &savedValue);
+      nvs_close(my_handle);
+    }
+    
+    if ((err == ESP_OK) && (savedValue == newValue) && (options[optionIndex].value == newValue)) {
+      print("New value set to ", newValue);
+      return true;
     }
 
     print("Values don't match");

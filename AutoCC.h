@@ -58,7 +58,7 @@ struct structure_option_setup {
 
 struct structure_option {
     int flag;                  // flag to indicate structure type
-    char mem_id[13];              // MEM id
+    char mem_id[13];           // MEM id
     char label[32];            // label
     int type;                  // TYPE_XXX list
     int range_min;             // range min - optional
@@ -100,7 +100,5 @@ bool isValidActive(int active);
 bool isValidRange(int range_min, int range_max, int value);
 
 bool sendRequest(byte macAddress[6], unsigned long uniqueId, int request, int value);
-
-
 
 #endif
