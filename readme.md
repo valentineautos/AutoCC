@@ -4,7 +4,7 @@ As long as you create your setup code for your CLIENT device using the correct d
 
 Using ESP-NOW, one server will handle up to 20 concurrent devices (in theory, I've only tested with three so far).
 
-##NOTES:
+## NOTES:
 
   - A CLIENT requires the MAC Address of the SERVER to be established. This is done with the structure detailed in the AutoCC-Client.ino example
   - Similarly, a server requires MAC Addresses of all CLIENTS in the same format. In time, I'll create a "settings" page UI where these can be added and removed, but for now they're hard coded into the AutoCC-Server.ino example
