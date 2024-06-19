@@ -48,33 +48,6 @@ void setup()
   pinMode(PIN_BTN_NEXT, INPUT_PULLUP);
   pinMode(PIN_BTN_ENTER, INPUT_PULLUP);
 
-  /* begin the server with settings and return menu
-  Available variables
-  .numOfMenuOptions                                   - get number of options
-  .requestList                                        - list of open requests (currently admin use only)
-  .menuItems                                          - array of menu items
-      .mem_id                                         - only used internally
-      .unique_id                                      - allocated at startup and used for setValue
-      .label
-      .type                                           - one of TYPE_SWITCH, TYPE_RANGE
-      .min_value
-      .max_value
-      .value
-  eg, 
-  if (int i = 0; i < CC.numOfMenuItems; i++){
-    int value = CC.menuItems[i].value;
-    Serial.print(value);
-  }
-
-  Available methods:
-  .begin(structure_peer* clients, int numOfDevices)   - initialise and get menu items
-  .setValue(unsigned long uniqueId, int newValue)     - menu  and new value of menu item to change
-  .resetClients(structure_peer* clients)              - reset and restart with new client list
-
-  Available helper functions:
-  print(vars / text)                                  - shorthand Serial Print with DEBUGGING bool switch
-  isValidValue(structure_option option, int value)    - test new value against menu item to see if valid for type before sending
-  */
   if (CC.begin(clients, numOfClients)) {
     menuSize = CC.numOfMenuOptions;
     print(menuSize, " menu options now available");
@@ -86,7 +59,6 @@ void setup()
 }
 
 void buildMenu() {
-  // TO DO - replace with UI 
   displayMenuItem(0);
 }
 
@@ -101,7 +73,6 @@ void handleNext() {
 }
 
 // change active value
-// TODO replace with UI interface
 void handleEnter() {
   handleSetValuePress(currentMenuItemIndex);
 }
