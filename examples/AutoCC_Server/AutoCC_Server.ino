@@ -42,22 +42,6 @@ structure_peer clients[] = {
 int numOfClients = sizeof(clients) / sizeof(clients[0]);
 int menuSize = 0; // initialisation
 
-void setup()
-{
-  Serial.begin(115200);
-  pinMode(PIN_BTN_NEXT, INPUT_PULLUP);
-  pinMode(PIN_BTN_ENTER, INPUT_PULLUP);
-
-  if (CC.begin(clients, numOfClients)) {
-    menuSize = CC.numOfMenuOptions;
-    print(menuSize, " menu options now available");
-
-    if (menuSize > 0) {
-      buildMenu();
-    }
-  };
-}
-
 void buildMenu() {
   displayMenuItem(0);
 }
@@ -106,6 +90,22 @@ void displayMenuItem(int index) {
     Serial.print(CC.menuItems[index].type);
     Serial.print(", Value: ");
     Serial.println(CC.menuItems[index].value);
+}
+
+void setup()
+{
+  Serial.begin(115200);
+  pinMode(PIN_BTN_NEXT, INPUT_PULLUP);
+  pinMode(PIN_BTN_ENTER, INPUT_PULLUP);
+
+  if (CC.begin(clients, numOfClients)) {
+    menuSize = CC.numOfMenuOptions;
+    print(menuSize, " menu options now available");
+
+    if (menuSize > 0) {
+      buildMenu();
+    }
+  };
 }
 
 void loop() {
