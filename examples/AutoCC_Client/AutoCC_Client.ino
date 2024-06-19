@@ -40,7 +40,7 @@ structure_peer server[] = {
 };
 
 /* options for your changable menu items in the format
-mem_id:           char[13]      - id - max 12 long to allow for null pointer
+id:               char[12]      - id - must be unique
 label             char[32]      - label name
 type              int           - type from TYPE_SWITCH, TYPE_RANGE, TYPE_COLOR, more tbc
 range_min         int           - min value for range - 0 if not required
@@ -70,8 +70,7 @@ void setNeoPixelColor(int red, int green, int blue) {
 void displayMode(int mode) {
   switch (mode) {
     case BRAKE_MODE:
-      if (CCClient.getValue(BRAKE_STATE) == 1) {
-        print("Brake State Value: ", CCClient.getValue(BRAKE_STATE));
+      if (CCClient.getValue(BRAKE_STATE)) {
         Serial.println("Brake mode");
         setNeoPixelColor(255, 0, 0);  // Red with max brightness
       } else {

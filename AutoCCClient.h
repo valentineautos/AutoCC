@@ -31,6 +31,9 @@ class AutoCCClient {
     bool tryUpdateValue(unsigned long uniqueId, int newValue);
     bool updateValue(int optionIndex, int newValue);
 
+    bool storeMemory(int optionIndex, int newValue);
+    bool getMemory(int optionIndex, int& response);
+
     void registerCallbacks();
     static void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);
     static void onDataRecv(const esp_now_recv_info *recvInfo, const uint8_t *sentData, int len);

@@ -47,7 +47,7 @@ bool AutoCCClient::begin(structure_peer* server, structure_option_setup* getOpti
     print("Loading ", getOptions[i].label);
 
     options[i].flag        = FLAG_OPTION;
-    strcpy(options[i].mem_id, getOptions[i].mem_id);
+    strcpy(options[i].mem_id, getOptions[i].id);
     options[i].mem_id[12] = '\0';
     strcpy(options[i].label, getOptions[i].label);
     options[i].type        = getOptions[i].type;
@@ -55,19 +55,9 @@ bool AutoCCClient::begin(structure_peer* server, structure_option_setup* getOpti
     options[i].range_max   = getOptions[i].range_max;
     options[i].unique_id   = 0;
 
-    print("NVS slot is ", options[i].mem_id);
-    nvs_handle_t my_handle;
-    esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
-    if (err == ESP_OK) {
-      int32_t savedValue;
-      err = nvs_get_i32(my_handle, options[i].mem_id, &savedValue);
-      if (err == ESP_OK) {
-        print("Saved value is ", savedValue);
-        options[i].value = savedValue;
-      } else {
-        options[i].value = getOptions[i].value;
-      }
-      nvs_close(my_handle);
+    int result;
+    if (getMemory(i, result)) {
+      options[i].value = result;
     } else {
       options[i].value = getOptions[i].value;
     }
@@ -92,6 +82,44 @@ int AutoCCClient::getValue(char getId[13]) {
    print(getId, " not found in options list");
    return -1;
 }
+
+/* NVS MEMORY READ AND WRITE */
+
+// Store the value in NVS
+bool AutoCCClient::storeMemory(int optionIndex, int newValue) {
+  nvs_handle_t mem_store;
+  esp_err_t err = nvs_open("storage", NVS_READWRITE, &mem_store);
+  if (err == ESP_OK) {
+    err = nvs_set_i32(mem_store, options[optionIndex].mem_id, newValue);
+    if (err == ESP_OK) {
+      err = nvs_commit(mem_store);
+    }
+    return true;
+    nvs_close(mem_store);
+  }
+  return false;
+}
+
+// Retrieve value from NVS
+bool AutoCCClient::getMemory(int optionIndex, int& response) {
+  nvs_handle_t mem_store;
+  esp_err_t err = nvs_open("storage", NVS_READWRITE, &mem_store);
+  if (err == ESP_OK) {
+    int32_t savedValue;
+    err = nvs_get_i32(mem_store, options[optionIndex].mem_id, &savedValue);
+    if (err == ESP_OK) {
+      print("Saved value is ", savedValue);
+      response = savedValue;
+      return true;
+    } 
+    nvs_close(mem_store);
+  } 
+  print("Error findind saved value");
+  response = -1;
+  return false;
+}
+
+
 
 /* RECEIVED DATA CALLBACK HANDLING */
 
@@ -168,33 +196,14 @@ bool AutoCCClient::tryUpdateValue(unsigned long uniqueId, int newValue) {
 }
 
 bool AutoCCClient::updateValue(int optionIndex, int newValue) {
-    options[optionIndex].value = newValue;
+    if (storeMemory(optionIndex, newValue)) {
+      options[optionIndex].value = newValue;
 
-    // Store the new value in NVS
-     nvs_handle_t my_handle;
-    esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
-    if (err == ESP_OK) {
-      err = nvs_set_i32(my_handle, options[optionIndex].mem_id, newValue);
-      if (err == ESP_OK) {
-        err = nvs_commit(my_handle);
-      }
-      nvs_close(my_handle);
-    }
-
-    // Check if stored value equals the new value
-    int32_t savedValue;
-    err = nvs_open("storage", NVS_READWRITE, &my_handle);
-    if (err == ESP_OK) {
-      err = nvs_get_i32(my_handle, options[optionIndex].mem_id, &savedValue);
-      nvs_close(my_handle);
-    }
-    
-    if ((err == ESP_OK) && (savedValue == newValue) && (options[optionIndex].value == newValue)) {
       print("New value set to ", newValue);
       return true;
-    }
+    };
 
-    print("Values don't match");
+    print("Error saving to memory");
     return false;
 }
 

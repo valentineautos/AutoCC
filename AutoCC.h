@@ -48,7 +48,7 @@ struct structure_peer {
 };
 
 struct structure_option_setup {
-    char mem_id[13];           // MEM id
+    char id[12];               // id
     char label[32];            // label
     int type;                  // TYPE_XXX list
     int range_min;             // range min - optional
