@@ -24,6 +24,7 @@ class AutoCCClient {
     Preferences preferences;
     byte _serverAddress[6];
     int _numOfOptions = 0;
+    unsigned long _clientUniqueId = 0;
     
     void handleRequest(const structure_request sentRequest);
     void sendOption(unsigned long uniqueId, int index);

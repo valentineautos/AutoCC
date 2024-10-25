@@ -33,8 +33,8 @@ Using ESP-NOW, one server will handle up to 20 concurrent devices (in theory, I'
   `.requestList` 
 #### Array of menu items
 - `.menuItems`
-  - `.mem_id`
-  - `.unique_id`
+  - `.memId`
+  - `.uniqueId`
   - `.label`
   - `.type`
   - `.min_value`

@@ -19,8 +19,8 @@
 // serial printing controllers for debugging
 #define DEBUGGING             true // Serial print flag
 
-#define ONLINE                1
-#define OFFLINE               0
+#define ONLINE                true
+#define OFFLINE               false
 #define ON                    1
 #define OFF                   0
 
@@ -37,6 +37,7 @@
 #define REQUEST_COUNT         1
 #define REQUEST_OPTION        2
 #define REQUEST_SET_VALUE     3
+#define REQUEST_ALLOCATE_ID   4
 
 #define DEVICE_SERVER         0
 #define DEVICE_CLIENT         1
@@ -47,29 +48,38 @@ struct structure_peer {
     byte macAddress[6];        // MAC Address
 };
 
+struct structure_online_client {
+    char label[32];            // label
+    unsigned long uniqueId;   // unique id for tracking
+    byte macAddress[6];        // MAC Address
+    int numOfOptions;          // Num of Menu Options in that Peers
+    bool isOnline;             // ONLINE or OFFLINE
+};
+
 struct structure_option_setup {
     char id[12];               // id
     char label[32];            // label
     int type;                  // TYPE_XXX list
-    int range_min;             // range min - optional
-    int range_max;             // range max - optional
+    int rangeMin;             // range min - optional
+    int rangeMax;             // range max - optional
     int value;                 // value
 };
 
 struct structure_option {
     int flag;                  // flag to indicate structure type
-    char mem_id[13];           // MEM id
+    char memId[13];           // MEM id
     char label[32];            // label
     int type;                  // TYPE_XXX list
-    int range_min;             // range min - optional
-    int range_max;             // range max - optional
+    int rangeMin;             // range min - optional
+    int rangeMax;             // range max - optional
     int value;                 // value
-    unsigned long unique_id;   // unique id for tracking
+    unsigned long uniqueId;   // unique id for tracking
+    unsigned long clientId;   // client unique id for tracking
 };
 
 struct structure_request {
     int flag;                  // flag to indicate structure type
-    unsigned long unique_id;   // unique id for tracking
+    unsigned long uniqueId;   // unique id for tracking
     int request;               // REQUEST_XXX VARS
     int value;                 // additional values
 };
@@ -97,7 +107,7 @@ int findOptionFromUniqueId(std::vector<structure_option> options, int numOfItems
 
 bool isValidValue(structure_option option, int value);
 bool isValidActive(int active);
-bool isValidRange(int range_min, int range_max, int value);
+bool isValidRange(int rangeMin, int rangeMax, int value);
 
 bool sendRequest(byte macAddress[6], unsigned long uniqueId, int request, int value);
 

@@ -16,29 +16,30 @@
 #include <vector>
 #include "AutoCC.h"
 
-#define REQUEST_TIMEOUT       2000 // default timeout for requests
+#define REQUEST_TIMEOUT       500 // default timeout for requests
 
 class AutoCCServer {
   public:
     AutoCCServer();
     bool begin(structure_peer* clients, int numOfDevices);
-    
+    int numOfOnlineClients = 0;
+    std::vector<structure_online_client> onlineClients;
+
     std::vector<structure_option> menuItems;
-    int numOfMenuOptions = 0;
+    int numOfMenuItems = 0;
     
     std::list<int> requestList;
     void resetClients(structure_peer* clients);
-    bool setValue(unsigned long indexId, int newValue);
+    bool checkAwakeStatus();
+    bool setValue(unsigned long uniqueId, int newValue);
   private:
     int _numOfClients = 0;
-    int _numOfOnlineClients = 0;
     int _numOfOptionsToGet = 0;
-    std::vector<structure_peer> _onlineClients;
-    
+
     bool registerAllPeers(structure_peer* clients);
-    bool getAllOptions();
-    bool testAwake(int id, structure_peer client);
-    void registerPeersComplete();
+    bool getAllOptions(int i);
+    bool testAwake(byte macAddress[6]);
+    bool allocateId(byte macAddress[6], unsigned long uniqueId);
 
     bool sendUpdateRequest(unsigned long uniqueId, int newValue);
     void updateValue(unsigned long uniqueId, int newValue);

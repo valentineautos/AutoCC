@@ -47,18 +47,19 @@ bool AutoCCClient::begin(structure_peer* server, structure_option_setup* getOpti
     print("Loading ", getOptions[i].label);
 
     options[i].flag        = FLAG_OPTION;
-    strcpy(options[i].mem_id, getOptions[i].id);
-    options[i].mem_id[12] = '\0';
+    strcpy(options[i].memId, getOptions[i].id);
+    options[i].memId[12] = '\0';
     strcpy(options[i].label, getOptions[i].label);
     options[i].type        = getOptions[i].type;
-    options[i].range_min   = getOptions[i].range_min;
-    options[i].range_max   = getOptions[i].range_max;
-    options[i].unique_id   = 0;
+    options[i].rangeMin   = getOptions[i].rangeMin;
+    options[i].rangeMax   = getOptions[i].rangeMax;
+    options[i].uniqueId   = 0;
 
     int result;
     if (getMemory(i, result)) {
       options[i].value = result;
     } else {
+      storeMemory(i, getOptions[i].value);
       options[i].value = getOptions[i].value;
     }
 
@@ -75,7 +76,7 @@ bool AutoCCClient::begin(structure_peer* server, structure_option_setup* getOpti
 int AutoCCClient::getValue(char getId[13]) {
    for (int i = 0; i < _numOfOptions; i++) {
       // look for id - accounts for null pointer
-      if (strcmp(getId, options[i].mem_id) == 0) {
+      if (strcmp(getId, options[i].memId) == 0) {
         return options[i].value;
       }
    }
@@ -90,7 +91,7 @@ bool AutoCCClient::storeMemory(int optionIndex, int newValue) {
   nvs_handle_t mem_store;
   esp_err_t err = nvs_open("storage", NVS_READWRITE, &mem_store);
   if (err == ESP_OK) {
-    err = nvs_set_i32(mem_store, options[optionIndex].mem_id, newValue);
+    err = nvs_set_i32(mem_store, options[optionIndex].memId, newValue);
     if (err == ESP_OK) {
       err = nvs_commit(mem_store);
     }
@@ -106,7 +107,7 @@ bool AutoCCClient::getMemory(int optionIndex, int& response) {
   esp_err_t err = nvs_open("storage", NVS_READWRITE, &mem_store);
   if (err == ESP_OK) {
     int32_t savedValue;
-    err = nvs_get_i32(mem_store, options[optionIndex].mem_id, &savedValue);
+    err = nvs_get_i32(mem_store, options[optionIndex].memId, &savedValue);
     if (err == ESP_OK) {
       print("Saved value is ", savedValue);
       response = savedValue;
@@ -130,20 +131,25 @@ void AutoCCClient::handleRequest(const structure_request sentRequest) {
   switch (sentRequest.request) {
     case REQUEST_AWAKE:
       print("Awake request received");
-      sendRequest(_serverAddress, sentRequest.unique_id, REQUEST_AWAKE, ONLINE); // respond that is awake
+      // only reset the unique id once
+      sendRequest(_serverAddress, sentRequest.uniqueId, REQUEST_AWAKE, ON); // respond that is awake with unique_id attached
       break;
+    case REQUEST_ALLOCATE_ID:
+      print("ID allocation received of ", sentRequest.uniqueId);
+      _clientUniqueId = sentRequest.uniqueId;
+      sendRequest(_serverAddress, sentRequest.uniqueId, REQUEST_ALLOCATE_ID, ON); // respond with new ID
     case REQUEST_COUNT:
       print("Count request received");
-      sendRequest(_serverAddress, sentRequest.unique_id, REQUEST_COUNT, _numOfOptions); // respond with number of options
+      sendRequest(_serverAddress, sentRequest.uniqueId, REQUEST_COUNT, _numOfOptions); // respond with number of options
       break;
     case REQUEST_OPTION:
       print("Option request received");
-      sendOption(sentRequest.unique_id, sentRequest.value);
+      sendOption(sentRequest.uniqueId, sentRequest.value);
       break;
     case REQUEST_SET_VALUE:
       print("Set Value request received");
-      if (tryUpdateValue(sentRequest.unique_id, sentRequest.value)) {
-        sendRequest(_serverAddress, sentRequest.unique_id, REQUEST_SET_VALUE, sentRequest.value); // send response that item is changed, otherwise, ignore and send nothing
+      if (tryUpdateValue(sentRequest.uniqueId, sentRequest.value)) {
+        sendRequest(_serverAddress, sentRequest.uniqueId, REQUEST_SET_VALUE, sentRequest.value); // send response that item is changed, otherwise, ignore and send nothing
       }
       break;
     default:
@@ -156,11 +162,13 @@ void AutoCCClient::handleRequest(const structure_request sentRequest) {
 used when sending option values to the server
 */
 void AutoCCClient::sendOption(unsigned long uniqueId, int index) {
+  print("clientId attached is ", _clientUniqueId);
+
   structure_option sendingOption;
   sendingOption               = options[index];
-  sendingOption.unique_id     = uniqueId;
-
-  options[index].unique_id    = uniqueId; // set the unique id to the sent one for later lookups
+  sendingOption.uniqueId     = uniqueId;
+  sendingOption.clientId     = _clientUniqueId;
+  options[index].uniqueId    = uniqueId; // set the unique id to the sent one for later lookups
 
   esp_err_t result = esp_now_send(_serverAddress, (uint8_t *)& sendingOption, sizeof(sendingOption));
 

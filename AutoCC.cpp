@@ -46,9 +46,11 @@ void print(const char* message, const char* message2) {
 void connectToWifi(const int deviceType) {
   if (deviceType == DEVICE_SERVER) {
     delay(SERVER_STARTUP_DELAY);
+    WiFi.mode(WIFI_AP_STA);
+  } else {
+    WiFi.mode(WIFI_STA);
   }
 
-  WiFi.mode(WIFI_STA);
 }
 
 bool initESPNOW() {
@@ -86,8 +88,8 @@ bool registerPeer(structure_peer getPeer) {
 
 int findOptionFromUniqueId(structure_option* options, int numOfItems, int uniqueId) {
   for (int i = 0; i < numOfItems; i++) {
-    print("Unique ID of item: ", options[i].unique_id);
-    if (options[i].unique_id == uniqueId) {
+    print("Unique ID of item: ", options[i].uniqueId);
+    if (options[i].uniqueId == uniqueId) {
       return i; // return the index of the value
     }
   }
@@ -96,7 +98,7 @@ int findOptionFromUniqueId(structure_option* options, int numOfItems, int unique
 
 int findOptionFromUniqueId(std::vector<structure_option> options, int numOfItems, int uniqueId) {
   for (int i = 0; i < numOfItems; i++) {
-    if (options[i].unique_id == uniqueId) {
+    if (options[i].uniqueId == uniqueId) {
       return i; // return the index of the value
     }
   }
@@ -111,7 +113,7 @@ bool isValidValue(structure_option option, const int value) {
       return isValidActive(value);
       break;
     case TYPE_RANGE:
-      return isValidRange(option.range_min, option.range_max, value);
+      return isValidRange(option.rangeMin, option.rangeMax, value);
       break;
     default:
       Serial.print("Unknown type sent");
@@ -121,8 +123,8 @@ bool isValidValue(structure_option option, const int value) {
 }
 
 // Range checker
-bool isValidRange(int range_min, int range_max, int value) {
-  return value >= range_min && value <= range_max;
+bool isValidRange(int rangeMin, int rangeMax, int value) {
+  return value >= rangeMin && value <= rangeMax;
 }
 
 // Switch checker
@@ -135,7 +137,7 @@ bool isValidActive(int active) {
 bool sendRequest(byte macAddress[6], unsigned long uniqueId, int request, int value) {
   structure_request newRequest;
   newRequest.flag         = FLAG_REQUEST;
-  newRequest.unique_id    = uniqueId;
+  newRequest.uniqueId    = uniqueId;
   newRequest.request      = request;
   newRequest.value        = value;
 

@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <cstring>
 #include "AutoCCServer.h"
 
 AutoCCServer* AutoCCServer::instance = nullptr; 
@@ -25,7 +26,7 @@ AutoCCServer::AutoCCServer() {
 
 /* CLIENT INTIIALISATION */
 
-/* Checks if clients are online and adds to _onlineClients
+/* Checks if clients are online and adds to onlineClients
 If online, requests options and adds to menuItems
 */
 
@@ -36,89 +37,98 @@ bool AutoCCServer::begin(structure_peer* clients, int numOfClients) {
   if (initESPNOW()) {
     registerCallbacks();
     if (registerAllPeers(clients)) {
-      if (getAllOptions()) {
-        print("All available options requested");
-        return true;
-      }
+      print("All clients online");
+      return true;
     }
   }
+  return false;
 }
 
 bool AutoCCServer::registerAllPeers(structure_peer* clients) {
   if (_numOfClients == 0) return false;
 
+  numOfOnlineClients = _numOfClients;
+
   for (int i = 0; i < _numOfClients; i++) {
     if (registerPeer(clients[i])) {
-      if (testAwake(i, clients[i])) {
-        // if client is online, add to online clients array
-        _onlineClients.push_back(clients[i]);
-        _numOfOnlineClients++;
-      };
-    };
+      const unsigned long uniqueId = generateUniqueId();
+
+      structure_online_client onlineClient;
+      strcpy(onlineClient.label, clients[i].label);
+      memcpy(onlineClient.macAddress, clients[i].macAddress, 6 * sizeof(byte));
+      onlineClient.numOfOptions = 0;
+      onlineClient.isOnline = OFFLINE;
+      onlineClient.uniqueId = uniqueId;
+    
+      onlineClients.push_back(onlineClient);
+
+      if (testAwake(clients[i].macAddress)) {
+        onlineClients[i].isOnline = ONLINE;
+        allocateId(clients[i].macAddress, uniqueId);
+        getAllOptions(i);
+      }
+    }; 
 
     // after testing final client
     if (i == (_numOfClients - 1)) {
-      registerPeersComplete();
+      print(numOfOnlineClients, " clients registered");
       return true;
     }
   }
 
-  if (_numOfOnlineClients == 0) return false;
+  return false;
 }
 
-bool AutoCCServer::getAllOptions() { 
-  for (int i = 0; i < _numOfOnlineClients; i++) {
-    _numOfOptionsToGet = 0;
-    const unsigned long uniqueId = generateUniqueId();
+bool AutoCCServer::getAllOptions(int i) { 
+  _numOfOptionsToGet = 0;
+  const unsigned long uniqueId = generateUniqueId();
 
-    if (sendRequest(_onlineClients[i].macAddress, uniqueId, REQUEST_COUNT, 0)) {
-      if (startTimeout(uniqueId)) {
-        print(_numOfOptionsToGet, " options to get");
-        for (int j = 0; j < _numOfOptionsToGet; j++) {
-          const unsigned long uniqueId2 = generateUniqueId();
-          if (sendRequest(_onlineClients[i].macAddress, uniqueId2, REQUEST_OPTION, j)) {
-            if (startTimeout(uniqueId2)) {
-              numOfMenuOptions++;
-              print("Successfully requested option ", j);
-            }
-          }
-
-          if ((i == (_numOfOnlineClients - 1)) && (j == (_numOfOptionsToGet - 1))) {
-            return true;
+  if (sendRequest(onlineClients[i].macAddress, uniqueId, REQUEST_COUNT, 0)) {
+    if (startTimeout(uniqueId)) {
+      print(_numOfOptionsToGet, " options to get");
+      onlineClients[i].numOfOptions = _numOfOptionsToGet;
+      for (int j = 0; j < _numOfOptionsToGet; j++) {
+        const unsigned long uniqueId2 = generateUniqueId();
+        if (sendRequest(onlineClients[i].macAddress, uniqueId2, REQUEST_OPTION, j)) {
+          if (startTimeout(uniqueId2)) {
+            numOfMenuItems++;
+            print("Successfully requested option ", j);
           }
         }
-      } else {
-        // retry?
+
+        if ((i == (numOfOnlineClients - 1)) && (j == (_numOfOptionsToGet - 1))) {
+          return true;
+        }
       }
-    };
+    } else {
+      // retry?
+    }
   }
 
   return false; // bool catch
 }
 
-bool AutoCCServer::testAwake(int id, structure_peer client) {
-  print("Testing awake of ", client.label);
+bool AutoCCServer::testAwake(byte macAddress[6]) {
+    const unsigned long uniqueId = generateUniqueId();
 
-  const unsigned long uniqueId = generateUniqueId();
-
-  if (sendRequest(client.macAddress, uniqueId, REQUEST_AWAKE, id)) {
+  if (sendRequest(macAddress, uniqueId, REQUEST_AWAKE, 0)) {
     return startTimeout(uniqueId);
   };
 }
 
-void AutoCCServer::registerPeersComplete() {
-  print(_numOfOnlineClients, " current online clients:");
-  for (int i = 0; i < _numOfOnlineClients; i++) {
-    print(_onlineClients[i].label, " online");
-  }
+bool AutoCCServer::allocateId(byte macAddress[6], unsigned long uniqueId) {
+  print("Id allocated to server: ", uniqueId);
+  if (sendRequest(macAddress, uniqueId, REQUEST_ALLOCATE_ID, 0)) {
+    return startTimeout(uniqueId);
+  };
 }
 
 
 // public function to set all clients to new list
 // potential "restart" button in ui
 void AutoCCServer::resetClients(structure_peer* clients) {
-  _onlineClients.clear();
-  _numOfOnlineClients = 0;
+  onlineClients.clear();
+  numOfOnlineClients = 0;
   registerAllPeers(clients);
 }
 
@@ -126,7 +136,7 @@ void AutoCCServer::resetClients(structure_peer* clients) {
 
 /* SETTING NEW VALUES */
 bool AutoCCServer::setValue(unsigned long uniqueId, int newValue) {
-  int optionIndex = findOptionFromUniqueId(menuItems, numOfMenuOptions, uniqueId);
+  int optionIndex = findOptionFromUniqueId(menuItems, numOfMenuItems, uniqueId);
 
   if (optionIndex > -1) {
     if (isValidValue(menuItems[optionIndex], newValue)) {
@@ -149,8 +159,8 @@ bool AutoCCServer::setValue(unsigned long uniqueId, int newValue) {
 
 
 bool AutoCCServer::sendUpdateRequest(unsigned long uniqueId, int newValue) {
-  for (int i = 0; i < _numOfOnlineClients; i++) {
-    sendRequest(_onlineClients[i].macAddress, uniqueId, REQUEST_SET_VALUE, newValue);
+  for (int i = 0; i < numOfOnlineClients; i++) {
+    sendRequest(onlineClients[i].macAddress, uniqueId, REQUEST_SET_VALUE, newValue);
   }
   if (startTimeout(uniqueId)) {
     print("Options changed successfully");
@@ -160,7 +170,7 @@ bool AutoCCServer::sendUpdateRequest(unsigned long uniqueId, int newValue) {
 }
 
 void AutoCCServer::updateValue(unsigned long uniqueId, int newValue) {
-  int optionIndex = findOptionFromUniqueId(menuItems, numOfMenuOptions, uniqueId);
+  int optionIndex = findOptionFromUniqueId(menuItems, numOfMenuItems, uniqueId);
   menuItems[optionIndex].value = newValue;
 }
 
@@ -219,18 +229,21 @@ void AutoCCServer::handleRequest(const structure_request sentRequest) {
     case REQUEST_COUNT:     
       _numOfOptionsToGet = sentRequest.value;
       break;
+    case REQUEST_ALLOCATE_ID:
+      print("ID allocated");
+      break;
     case REQUEST_AWAKE:
-      print("Client is online");
+      print("Client is awake");
       break;
     case REQUEST_SET_VALUE:
-      updateValue(sentRequest.unique_id, sentRequest.value);
+      updateValue(sentRequest.uniqueId, sentRequest.value);
       break;
     default:
       Serial.println("Unknown request type received");
       break;
   }
 
-  removeFromRequestList(sentRequest.unique_id);
+  removeFromRequestList(sentRequest.uniqueId);
 };
 
 
@@ -241,10 +254,30 @@ void AutoCCServer::addOptionToMenu(const structure_option sentOption) {
   menuItems.push_back(sentOption);
 
   print(sentOption.label, " added to the menu");
-  removeFromRequestList(sentOption.unique_id);
+  removeFromRequestList(sentOption.uniqueId);
 };
 
+bool AutoCCServer::checkAwakeStatus() {
+  for (int i = 0; i < numOfOnlineClients; i++) {
+    bool isOnline = testAwake(onlineClients[i].macAddress);
+    Serial.print(onlineClients[i].label);
+    Serial.print(" is ");
+    Serial.println((isOnline) ? "online" : "offline");
 
+    // if currrently flagged offline, and now saying online, and has no options, then get options
+    if ((onlineClients[i].isOnline == OFFLINE) && (isOnline) && (onlineClients[i].numOfOptions == 0)) {
+      allocateId(onlineClients[i].macAddress, onlineClients[i].uniqueId);
+      getAllOptions(i);
+    }
+    onlineClients[i].isOnline = isOnline;
+
+    if (i == (numOfOnlineClients - 1)) {
+      return true;
+    }
+  }
+
+  return true;
+}
 
 /* ESP-NOW CALLBACK FUNCTIONS */
 
